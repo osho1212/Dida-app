@@ -51,12 +51,11 @@ function FirebaseProvider({ children }) {
 
       if (!firebaseUser) {
         setProfile(null);
+        // Only sign in anonymously if there's no user at all
+        signInAnonymously(auth).catch(() => {
+          // Ignore anonymous sign-in errors; user can still authenticate manually.
+        });
       }
-    });
-
-    // For prototype purposes we sign in anonymously if no auth flow exists.
-    signInAnonymously(auth).catch(() => {
-      // Ignore anonymous sign-in errors; user can still authenticate manually.
     });
 
     return () => unsubscribe();
@@ -183,7 +182,8 @@ function FirebaseProvider({ children }) {
   const signOutUser = async () => {
     setError(null);
     await signOut(auth);
-    await signInAnonymously(auth).catch(() => {});
+    // Don't automatically sign in anonymously after sign out
+    // The onAuthStateChanged listener will handle it if needed
   };
 
   const value = useMemo(
