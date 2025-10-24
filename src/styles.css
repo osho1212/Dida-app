@@ -642,6 +642,9 @@ body {
   border-radius: 28px 28px 0 0;
   border: 1px solid var(--primary-light);
   padding: 28px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 28px 64px rgba(0, 0, 0, 0.65);
   animation: slideUp 0.4s ease forwards;
 }
@@ -703,6 +706,13 @@ body {
 .modal-copy {
   margin: 0 0 16px 0;
   color: rgba(255, 255, 255, 0.72);
+}
+
+.modal-body {
+  overflow-y: auto;
+  max-height: calc(90vh - 240px);
+  padding-right: 12px;
+  margin-right: -12px;
 }
 
 .mock-form {
@@ -1962,6 +1972,52 @@ body {
 .remove-exercise:hover {
   background: var(--primary-lighter);
   color: var(--primary-color);
+}
+
+.completed-exercises {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--primary-lighter);
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.completed-exercises ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+
+.completed-exercises li {
+  list-style: disc;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.completed-title {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.undo-completed {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 14px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  color: var(--primary-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.undo-completed:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: var(--primary-color);
 }
 
 .add-exercise {

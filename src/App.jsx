@@ -47,23 +47,28 @@ function App() {
   const { theme: currentTheme, loading: themeLoading, updateTheme } = useUserTheme(user);
 
   const { data: fitnessLogsRaw } = useUserCollection(user, "fitnessLogs", {
-    orderBy: ["timestamp", "desc"],
+    orderByField: "timestamp",
+    orderDirection: "desc",
     limit: 100
   });
   const { data: calorieDataRaw } = useUserCollection(user, "calories", {
-    orderBy: ["timestamp", "desc"],
+    orderByField: "timestamp",
+    orderDirection: "desc",
     limit: 100
   });
   const { data: expenseDataRaw } = useUserCollection(user, "expenses", {
-    orderBy: ["timestamp", "desc"],
+    orderByField: "timestamp",
+    orderDirection: "desc",
     limit: 100
   });
   const { data: todoDataRaw } = useUserCollection(user, "todos", {
-    orderBy: ["createdAt", "desc"],
+    orderByField: "createdAt",
+    orderDirection: "desc",
     limit: 100
   });
   const { data: attendanceDataRaw } = useUserCollection(user, "attendance", {
-    orderBy: ["date", "desc"],
+    orderByField: "date",
+    orderDirection: "desc",
     limit: 100
   });
 
@@ -104,10 +109,15 @@ function App() {
       closeQuickAdd: () => setShowQuickAdd(false),
       saveFitnessLog: async (log) => {
         if (!user || !db) return;
-        await addDoc(collection(db, "users", user.uid, "fitnessLogs"), {
-          ...log,
-          timestamp: serverTimestamp()
-        });
+        const ref = doc(db, "users", user.uid, "fitnessLogs", log.date);
+        await setDoc(
+          ref,
+          {
+            ...log,
+            timestamp: serverTimestamp()
+          },
+          { merge: true }
+        );
         setShowQuickAdd(false);
       },
       saveAttendanceLog: async (dateStr, notes) => {
@@ -239,7 +249,7 @@ function App() {
                 modules={dashboardData.modules}
                 onQuickAdd={actions.openQuickAdd}
               />
-              <DailyPie slices={dashboardData.pieSlices} />
+              <DailyPie slices={dashboardData.slices} />
               <StreakCalendar
                 fitnessLogs={fitnessLogs}
                 calorieData={calorieData}

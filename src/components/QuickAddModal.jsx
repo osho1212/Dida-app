@@ -1,4 +1,40 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+const LOCAL_STORAGE_KEY = "dida-fitness-templates";
+
+const defaultExerciseTemplate = [
+  { id: 1, name: "Morning Run", completed: false },
+  { id: 2, name: "Strength Training", completed: false },
+  { id: 3, name: "Stretching", completed: false }
+];
+
+function loadExerciseTemplate() {
+  if (typeof window === "undefined") return defaultExerciseTemplate;
+  try {
+    const stored = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (!stored) return defaultExerciseTemplate;
+    const parsed = JSON.parse(stored);
+    if (!Array.isArray(parsed)) {
+      return defaultExerciseTemplate;
+    }
+    return parsed.map((item, index) => ({
+      id: item.id ?? Date.now() + index,
+      name: item.name ?? "Exercise",
+      completed: Boolean(item.completed)
+    }));
+  } catch (error) {
+    return defaultExerciseTemplate;
+  }
+}
+
+function persistExerciseTemplate(template) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(template));
+  } catch (error) {
+    // Ignore persistence errors; template will reset to defaults.
+  }
+}
 
 const tabs = [
   { id: "fitness", label: "Fitness" },
@@ -17,11 +53,7 @@ function QuickAddModal({
   onSaveTodo
 }) {
   const [activeTab, setActiveTab] = useState("fitness");
-  const [exercises, setExercises] = useState([
-    { id: 1, name: "Morning Run", completed: false },
-    { id: 2, name: "Strength Training", completed: false },
-    { id: 3, name: "Stretching", completed: false }
-  ]);
+  const [exercises, setExercises] = useState(loadExerciseTemplate);
   const [newExercise, setNewExercise] = useState("");
   const [fitnessNotes, setFitnessNotes] = useState("");
   const [attendedOffice, setAttendedOffice] = useState(false);
@@ -51,25 +83,43 @@ function QuickAddModal({
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
+  const completedExercises = exercises.filter((exercise) => exercise.completed);
+
+  useEffect(() => {
+    persistExerciseTemplate(exercises);
+  }, [exercises]);
+
   const toggleExercise = (id) => {
-    setExercises(exercises.map(ex =>
-      ex.id === id ? { ...ex, completed: !ex.completed } : ex
-    ));
+    setExercises((prev) =>
+      prev.map((ex) =>
+        ex.id === id ? { ...ex, completed: !ex.completed } : ex
+      )
+    );
   };
 
   const addExercise = () => {
-    if (newExercise.trim()) {
-      setExercises([...exercises, {
-        id: Date.now(),
-        name: newExercise,
-        completed: false
-      }]);
+    const trimmed = newExercise.trim();
+    if (!trimmed) return;
+
+    const exists = exercises.some(
+      (item) => item.name.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (exists) {
       setNewExercise("");
+      return;
     }
+
+    const newItem = {
+      id: Date.now(),
+      name: trimmed,
+      completed: false
+    };
+    setExercises((prev) => [...prev, newItem]);
+    setNewExercise("");
   };
 
   const removeExercise = (id) => {
-    setExercises(exercises.filter(ex => ex.id !== id));
+    setExercises((prev) => prev.filter((ex) => ex.id !== id));
   };
 
   const handleSave = async () => {
@@ -220,6 +270,25 @@ function QuickAddModal({
                     + Add
                   </button>
                 </div>
+                {completedExercises.length > 0 && (
+                  <div className="completed-exercises">
+                    <span className="completed-title">Completed today</span>
+                    <ul>
+                      {completedExercises.map((exercise) => (
+                        <li key={exercise.id}>
+                          <span>{exercise.name}</span>
+                          <button
+                            type="button"
+                            className="undo-completed"
+                            onClick={() => toggleExercise(exercise.id)}
+                          >
+                            Undo
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
               <label style={{ marginTop: "16px" }}>
                 <span>Notes</span>

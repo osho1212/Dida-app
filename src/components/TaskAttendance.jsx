@@ -1,13 +1,38 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AttendanceCalendar from "./AttendanceCalendar.jsx";
 
+const TASKS_STORAGE_KEY = "dida-glow-list";
+
+const defaultTasks = [
+  { id: 1, title: "Prep client deck sparkle", time: "Due 3 PM", tag: "Priority", completed: false },
+  { id: 2, title: "Lunch walk & hydrate", time: "1:00 PM", tag: "Wellness", completed: false },
+  { id: 3, title: "Submit expense slips", time: "4:30 PM", tag: "Finance", completed: false },
+  { id: 4, title: "Glow journaling", time: "9:00 PM", tag: "Reflection", completed: false }
+];
+
+function loadTasks() {
+  if (typeof window === "undefined") return defaultTasks;
+  try {
+    const stored = window.localStorage.getItem(TASKS_STORAGE_KEY);
+    if (!stored) return defaultTasks;
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed : defaultTasks;
+  } catch (error) {
+    return defaultTasks;
+  }
+}
+
+function persistTasks(nextTasks) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(nextTasks));
+  } catch (error) {
+    // Ignore storage failures; list simply won't persist.
+  }
+}
+
 function TaskAttendance({ attendanceData, onDateToggle }) {
-  const [tasks, setTasks] = useState([
-    { id: 1, title: "Prep client deck sparkle", time: "Due 3 PM", tag: "Priority", completed: false },
-    { id: 2, title: "Lunch walk & hydrate", time: "1:00 PM", tag: "Wellness", completed: false },
-    { id: 3, title: "Submit expense slips", time: "4:30 PM", tag: "Finance", completed: false },
-    { id: 4, title: "Glow journaling", time: "9:00 PM", tag: "Reflection", completed: false }
-  ]);
+  const [tasks, setTasks] = useState(loadTasks);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskTime, setNewTaskTime] = useState("");
@@ -15,6 +40,9 @@ function TaskAttendance({ attendanceData, onDateToggle }) {
   const attendanceDates = attendanceData?.dates || [];
   const attendanceNotes = attendanceData?.notes || {};
 
+  useEffect(() => {
+    persistTasks(tasks);
+  }, [tasks]);
   const getStreakCount = () => {
     if (attendanceDates.length === 0) return 0;
     const sorted = [...attendanceDates].sort().reverse();

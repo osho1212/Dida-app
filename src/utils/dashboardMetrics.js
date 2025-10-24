@@ -41,6 +41,22 @@ function extractTodayCollections(data, isoToday) {
   };
 }
 
+function getTimestampMillis(entry) {
+  if (!entry) return 0;
+  const ts = entry.timestamp;
+  if (ts?.toDate) return ts.toDate().getTime();
+  if (typeof ts === "number") return ts;
+  if (typeof ts === "string") {
+    const parsed = Date.parse(ts);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  if (entry.date) {
+    const parsed = Date.parse(entry.date);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  return 0;
+}
+
 function calculateFitnessMetrics(todayFitness, targets) {
   const goal = getTarget(targets, "fitnessDailyExercises");
   const completedExercises = todayFitness.reduce((sum, log) => {
@@ -52,12 +68,29 @@ function calculateFitnessMetrics(todayFitness, targets) {
     .filter(Boolean)
     .slice(0, 2);
 
-  const intensityScore = goal > 0 ? Math.min(completedExercises / goal, 1) : 0;
+  const latestLog = todayFitness[0];
+  const latestExercises = Array.isArray(latestLog?.exercises)
+    ? latestLog.exercises
+        .filter((exercise) => exercise.completed)
+        .map((exercise) => exercise.name)
+    : [];
+
+  const summary = latestExercises.length
+    ? `Logged: ${latestExercises.slice(0, 3).join(", ")}${
+        latestExercises.length > 3 ? "…" : ""
+      }`
+    : completedExercises > 0
+      ? `${completedExercises} move${completedExercises !== 1 ? "s" : ""} logged`
+      : "No workouts logged yet";
+
+  const progress = goal > 0 ? Math.min(completedExercises / goal, 1) : 0;
 
   return {
     completedExercises,
     notes,
-    intensityScore,
+    latestExercises,
+    summary,
+    progress,
     subtitle:
       completedExercises > 0
         ? `${completedExercises} exercise${completedExercises !== 1 ? "s" : ""} logged`
@@ -75,12 +108,22 @@ function calculateCalorieMetrics(todayCalories, targets) {
     0
   );
   const remaining = calorieGoal - totalCalories;
-  const ratio = calorieGoal > 0 ? Math.min(totalCalories / calorieGoal, 1) : 0;
+  const progress = calorieGoal > 0 ? Math.min(totalCalories / calorieGoal, 1) : 0;
+
+  const latestEntry = todayCalories[0];
+  const summary = latestEntry
+    ? `Last: ${latestEntry.foodName ?? "Meal"} (${Math.round(
+        safeNumber(latestEntry.calories, 0)
+      )} kcal)`
+    : totalCalories > 0
+      ? `${todayCalories.length} meal${todayCalories.length !== 1 ? "s" : ""} logged`
+      : "No meals logged yet";
 
   return {
     totalCalories,
     remaining,
-    ratio,
+    progress,
+    summary,
     subtitle:
       totalCalories > 0
         ? `${Math.round(totalCalories)} kcal logged`
@@ -109,25 +152,35 @@ function calculateExpenseMetrics(todayExpenses, targets) {
   const topCategory =
     Object.entries(categoryTotals)
       .sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
-  const ratio = dailyBudget > 0 ? Math.min(totalSpent / dailyBudget, 1) : 0;
+  const progress = dailyBudget > 0 ? Math.min(totalSpent / dailyBudget, 1) : 0;
+
+  const latestExpense = todayExpenses[0];
+  const summary = latestExpense
+    ? `Last: ${latestExpense.description ?? "Expense"} (₹${Math.round(
+        safeNumber(latestExpense.amount, 0)
+      ).toLocaleString()})`
+    : totalSpent > 0
+      ? `₹${Math.round(totalSpent).toLocaleString()} spent`
+      : "No expenses logged yet";
 
   return {
     totalSpent,
     remaining,
-    ratio,
-    subtitle:
-      totalSpent > 0
-        ? `₹${Math.round(totalSpent).toLocaleString()} spent${
-            topCategory ? ` • Top: ${topCategory}` : ""
-          }`
-        : "No expenses tracked yet",
+    progress,
+    summary,
     metricLabel: remaining >= 0 ? "Budget left" : "Over spend",
     metricValue:
       remaining >= 0
         ? `₹${Math.round(remaining).toLocaleString()}`
         : `₹${Math.round(Math.abs(remaining)).toLocaleString()}`,
     topCategory,
-    dailyBudget
+    dailyBudget,
+    subtitle:
+      totalSpent > 0
+        ? `₹${Math.round(totalSpent).toLocaleString()} spent${
+            topCategory ? ` • Top: ${topCategory}` : ""
+          }`
+        : "No expenses logged yet"
   };
 }
 
@@ -135,19 +188,27 @@ function calculateTodoMetrics(todayTodos, targets) {
   const todoTarget = getTarget(targets, "todoDailyTarget");
   const total = todayTodos.length;
   const completed = todayTodos.filter((todo) => todo.completed).length;
-  const ratio = todoTarget > 0 ? Math.min(completed / todoTarget, 1) : 0;
+  const progress = todoTarget > 0 ? Math.min(completed / todoTarget, 1) : 0;
+
+  const latestTodo = todayTodos[0];
+  const summary = latestTodo
+    ? `Latest: ${latestTodo.title ?? "Task"}`
+    : total > 0
+      ? `${completed} of ${total} complete`
+      : "No tasks scheduled today";
 
   return {
     total,
     completed,
-    ratio,
+    progress,
+    summary,
+    metricLabel: "Daily target",
+    metricValue: `${completed}/${todoTarget}`,
+    todoTarget,
     subtitle:
       total > 0
         ? `${completed} of ${total} complete`
-        : "No tasks scheduled today",
-    metricLabel: "Daily target",
-    metricValue: `${completed}/${todoTarget}`,
-    todoTarget
+        : "No tasks scheduled today"
   };
 }
 
@@ -186,49 +247,77 @@ export function buildDailyDashboardData(data, userTargets = DEFAULT_TARGETS) {
     attendanceToday
   } = extractTodayCollections(data, isoToday);
 
-  const fitness = calculateFitnessMetrics(todayFitness, targets);
-  const calories = calculateCalorieMetrics(todayCalories, targets);
-  const expenses = calculateExpenseMetrics(todayExpenses, targets);
-  const todos = calculateTodoMetrics(todayTodos, targets);
+  const fitnessRecords = todayFitness
+    .slice()
+    .sort((a, b) => getTimestampMillis(b) - getTimestampMillis(a));
+
+  const uniqueFitness = [];
+  const seenFitnessDates = new Set();
+  fitnessRecords.forEach((log) => {
+    const key = log.date ?? log.id;
+    if (!key || seenFitnessDates.has(key)) return;
+    seenFitnessDates.add(key);
+    uniqueFitness.push(log);
+  });
+
+  const fitness = calculateFitnessMetrics(uniqueFitness, targets);
+  const calories = calculateCalorieMetrics(
+    todayCalories.slice().sort((a, b) => getTimestampMillis(b) - getTimestampMillis(a)),
+    targets
+  );
+  const expenses = calculateExpenseMetrics(
+    todayExpenses.slice().sort((a, b) => getTimestampMillis(b) - getTimestampMillis(a)),
+    targets
+  );
+  const todos = calculateTodoMetrics(
+    todayTodos.slice().sort((a, b) => getTimestampMillis(b) - getTimestampMillis(a)),
+    targets
+  );
   const attendance = calculateAttendanceMetrics(attendanceToday, data.attendanceData);
+
+  const sliceColors = {
+    fitness: "var(--primary-color)",
+    calories: "var(--secondary-color)",
+    expenses: "var(--accent-1)",
+    attendance: "var(--accent-2)",
+    todos: "var(--secondary-dark)"
+  };
 
   const slicesBase = [
     {
       id: "fitness",
       label: "Fitness Energy",
-      score: fitness.intensityScore,
-      detail: `${fitness.completedExercises}/${fitness.goal} moves`,
-      color: "#ff4fa3"
+      score: fitness.progress,
+      detail: fitness.summary,
+      color: sliceColors.fitness
     },
     {
       id: "calories",
       label: "Calorie Balance",
-      score: Math.max(1 - calories.ratio, 0), // remaining proportion
-      detail: `${Math.max(0, Math.round(calories.remaining))} kcal left`,
-      color: "#d6c8ff"
+      score: calories.progress,
+      detail: calories.summary,
+      color: sliceColors.calories
     },
     {
       id: "expenses",
       label: "Spend Bliss",
-      score: Math.max(1 - expenses.ratio, 0),
-      detail: expenses.remaining >= 0
-        ? `₹${Math.round(expenses.remaining).toLocaleString()} left`
-        : `₹${Math.round(Math.abs(expenses.remaining)).toLocaleString()} over`,
-      color: "#ffa5d3"
+      score: expenses.progress,
+      detail: expenses.summary,
+      color: sliceColors.expenses
     },
     {
       id: "attendance",
       label: "Office Glow",
       score: attendance.ratio,
       detail: attendance.attendanceToday ? "Present" : "Mark attendance",
-      color: "#ff7dc2"
+      color: sliceColors.attendance
     },
     {
       id: "todos",
       label: "Task Magic",
-      score: todos.ratio,
-      detail: `${todos.completed}/${todos.todoTarget} done`,
-      color: "#c7b8ff"
+      score: todos.progress,
+      detail: todos.summary,
+      color: sliceColors.todos
     }
   ];
 
@@ -261,15 +350,19 @@ export function buildDailyDashboardData(data, userTargets = DEFAULT_TARGETS) {
     {
       id: "fitness",
       title: "Fitness",
-      subtitle: fitness.subtitle,
+      subtitle: fitness.summary,
       metricLabel: fitness.metricLabel,
       metricValue: fitness.metricValue,
-      primaryText: `${fitness.completedExercises}/${fitness.goal} moves`
+      primaryText: fitness.latestExercises.length
+        ? `Completed: ${fitness.latestExercises.slice(0, 3).join(", ")}${
+            fitness.latestExercises.length > 3 ? "…" : ""
+          }`
+        : `${fitness.completedExercises}/${fitness.goal} moves`
     },
     {
       id: "calories",
       title: "Calories",
-      subtitle: calories.subtitle,
+      subtitle: calories.summary,
       metricLabel: calories.metricLabel,
       metricValue: calories.metricValue,
       primaryText: `${Math.round(calories.totalCalories)}/${Math.round(calories.goal)} kcal`
@@ -277,7 +370,7 @@ export function buildDailyDashboardData(data, userTargets = DEFAULT_TARGETS) {
     {
       id: "expenses",
       title: "Expenses",
-      subtitle: expenses.subtitle,
+      subtitle: expenses.summary,
       metricLabel: expenses.metricLabel,
       metricValue: expenses.metricValue,
       primaryText: `₹${Math.round(expenses.totalSpent).toLocaleString()} / ₹${Math.round(
@@ -295,7 +388,7 @@ export function buildDailyDashboardData(data, userTargets = DEFAULT_TARGETS) {
     {
       id: "todos",
       title: "To-Dos",
-      subtitle: todos.subtitle,
+      subtitle: todos.summary,
       metricLabel: todos.metricLabel,
       metricValue: todos.metricValue,
       primaryText: `${todos.completed}/${todos.todoTarget} complete`

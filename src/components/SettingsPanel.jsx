@@ -1,6 +1,35 @@
 import { useEffect, useMemo, useState } from "react";
 import { DEFAULT_TARGETS } from "../constants/defaultTargets.js";
 
+const REMINDERS_STORAGE_KEY = "dida-reminders";
+
+const defaultReminders = [
+  { id: 1, time: "07:30 AM", label: "Morning Glow" },
+  { id: 2, time: "01:00 PM", label: "Midday Boost" },
+  { id: 3, time: "08:30 PM", label: "Wind-down Wrap" }
+];
+
+function loadReminders() {
+  if (typeof window === "undefined") return defaultReminders;
+  try {
+    const stored = window.localStorage.getItem(REMINDERS_STORAGE_KEY);
+    if (!stored) return defaultReminders;
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed : defaultReminders;
+  } catch (error) {
+    return defaultReminders;
+  }
+}
+
+function persistReminders(nextReminders) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(REMINDERS_STORAGE_KEY, JSON.stringify(nextReminders));
+  } catch (error) {
+    // Ignore failures; reminders simply won't persist.
+  }
+}
+
 function SettingsPanel({
   currentTheme,
   onThemeChange,
@@ -12,16 +41,16 @@ function SettingsPanel({
   targets,
   onUpdateTargets
 }) {
-  const [reminders, setReminders] = useState([
-    { id: 1, time: "07:30 AM", label: "Morning Glow" },
-    { id: 2, time: "01:00 PM", label: "Midday Boost" },
-    { id: 3, time: "08:30 PM", label: "Wind-down Wrap" }
-  ]);
+  const [reminders, setReminders] = useState(loadReminders);
   const [showAddReminder, setShowAddReminder] = useState(false);
   const [newReminderTime, setNewReminderTime] = useState("");
   const [newReminderLabel, setNewReminderLabel] = useState("");
   const [editingReminder, setEditingReminder] = useState(null);
   const [targetDraft, setTargetDraft] = useState(targets ?? DEFAULT_TARGETS);
+
+  useEffect(() => {
+    persistReminders(reminders);
+  }, [reminders]);
 
   const selectedTheme = currentTheme || "girly";
   const isAnonymous = user?.isAnonymous ?? true;
