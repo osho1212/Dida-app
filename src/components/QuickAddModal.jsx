@@ -72,40 +72,6 @@ function QuickAddModal({
     setExercises(exercises.filter(ex => ex.id !== id));
   };
 
-  const resetFormState = () => {
-    const today = new Date().toISOString().split("T")[0];
-    setExercises([
-      { id: 1, name: "Morning Run", completed: false },
-      { id: 2, name: "Strength Training", completed: false },
-      { id: 3, name: "Stretching", completed: false }
-    ]);
-    setNewExercise("");
-    setFitnessNotes("");
-    setAttendedOffice(false);
-    setAttendanceNotes("");
-    setAttendanceDate(today);
-    setCalorieDate(today);
-    setExpenseDate(today);
-    setFoodName("");
-    setCalories("");
-    setPortion("");
-    setMealType("breakfast");
-    setExpenseDescription("");
-    setExpenseAmount("");
-    setExpenseCategory("food");
-    setExpenseNotes("");
-    setTodoTitle("");
-    setTodoDescription("");
-    setTodoCategory("work");
-    setTodoPriority("medium");
-    setTodoDueDate("");
-  };
-
-  const closeAndReset = () => {
-    resetFormState();
-    onClose();
-  };
-
   const handleSave = async () => {
     if (isSaving) return;
     setErrorMessage("");
@@ -125,13 +91,9 @@ function QuickAddModal({
           notes: fitnessNotes.trim()
         };
         await onSaveFitness(log);
-        resetFormState();
-        onClose();
       } else if (activeTab === "attendance" && onSaveAttendance) {
         if (attendedOffice) {
           await onSaveAttendance(attendanceDate, attendanceNotes.trim());
-          resetFormState();
-          onClose();
         } else {
           throw new Error("Toggle the attendance switch to mark the day.");
         }
@@ -146,8 +108,6 @@ function QuickAddModal({
             timestamp: new Date().toISOString()
           };
           await onSaveCalorie(entry);
-          resetFormState();
-          onClose();
         } else {
           throw new Error("Please add a food name and calories.");
         }
@@ -162,8 +122,6 @@ function QuickAddModal({
             timestamp: new Date().toISOString()
           };
           await onSaveExpense(entry);
-          resetFormState();
-          onClose();
         } else {
           throw new Error("Please add a description and amount.");
         }
@@ -178,13 +136,11 @@ function QuickAddModal({
             completed: false
           };
           await onSaveTodo(entry);
-          resetFormState();
-          onClose();
         } else {
           throw new Error("Please add a task title.");
         }
       } else {
-        closeAndReset();
+        onClose();
       }
     } catch (error) {
       setErrorMessage(error.message ?? "Unable to save entry.");
@@ -195,11 +151,11 @@ function QuickAddModal({
 
   return (
     <div className="quick-add-modal" role="dialog" aria-modal="true">
-      <div className="modal-backdrop" onClick={closeAndReset} />
+      <div className="modal-backdrop" onClick={onClose} />
       <div className="modal-sheet">
         <header className="modal-header">
           <h3>Quick Add</h3>
-          <button type="button" className="modal-close" onClick={closeAndReset}>
+          <button type="button" className="modal-close" onClick={onClose}>
             ×
           </button>
         </header>
@@ -481,7 +437,7 @@ function QuickAddModal({
         )}
 
         <footer className="modal-footer">
-          <button type="button" className="modal-secondary" onClick={closeAndReset}>
+          <button type="button" className="modal-secondary" onClick={onClose}>
             Cancel
           </button>
           <button

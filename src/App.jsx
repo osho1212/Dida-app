@@ -239,7 +239,7 @@ function App() {
                 modules={dashboardData.modules}
                 onQuickAdd={actions.openQuickAdd}
               />
-              <DailyPie slices={dashboardData.slices} />
+              <DailyPie slices={dashboardData.pieSlices} />
               <StreakCalendar
                 fitnessLogs={fitnessLogs}
                 calorieData={calorieData}
