@@ -1,6 +1,17 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { DEFAULT_TARGETS } from "../constants/defaultTargets.js";
 
-function SettingsPanel({ currentTheme, onThemeChange }) {
+function SettingsPanel({
+  currentTheme,
+  onThemeChange,
+  notificationStatus,
+  user,
+  profile,
+  onSignOut,
+  onOpenAuth,
+  targets,
+  onUpdateTargets
+}) {
   const [reminders, setReminders] = useState([
     { id: 1, time: "07:30 AM", label: "Morning Glow" },
     { id: 2, time: "01:00 PM", label: "Midday Boost" },
@@ -10,8 +21,27 @@ function SettingsPanel({ currentTheme, onThemeChange }) {
   const [newReminderTime, setNewReminderTime] = useState("");
   const [newReminderLabel, setNewReminderLabel] = useState("");
   const [editingReminder, setEditingReminder] = useState(null);
+  const [targetDraft, setTargetDraft] = useState(targets ?? DEFAULT_TARGETS);
 
   const selectedTheme = currentTheme || "girly";
+  const isAnonymous = user?.isAnonymous ?? true;
+  const accountName = profile?.displayName ?? user?.displayName ?? "Guest Glimmer";
+  const accountEmail = user?.email ?? profile?.email ?? null;
+  const handleTargetChange = (field, value) => {
+    setTargetDraft((prev) => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const hasTargetChanges = useMemo(() => {
+    if (!targets) return false;
+    return Object.keys(DEFAULT_TARGETS).some((key) => {
+      const currentVal = Number(targets?.[key] ?? DEFAULT_TARGETS[key]);
+      const draftVal = Number(targetDraft?.[key] ?? DEFAULT_TARGETS[key]);
+      return currentVal !== draftVal;
+    });
+  }, [targetDraft, targets]);
 
   const themes = [
     {
@@ -68,6 +98,17 @@ function SettingsPanel({ currentTheme, onThemeChange }) {
     setNewReminderLabel("");
   };
 
+  const saveTargets = async () => {
+    if (!onUpdateTargets) return;
+    await onUpdateTargets({
+      fitnessDailyExercises: Number(targetDraft.fitnessDailyExercises),
+      calorieDailyGoal: Number(targetDraft.calorieDailyGoal),
+      expenseDailyBudget: Number(targetDraft.expenseDailyBudget),
+      expenseMonthlyBudget: Number(targetDraft.expenseMonthlyBudget),
+      todoDailyTarget: Number(targetDraft.todoDailyTarget)
+    });
+  };
+
   const exportToPDF = () => {
     alert("Exporting Weekly PDF... (Feature coming soon!)");
   };
@@ -76,8 +117,133 @@ function SettingsPanel({ currentTheme, onThemeChange }) {
     alert("Downloading CSV... (Feature coming soon!)");
   };
 
+  const notificationCopy = useMemo(() => {
+    if (!notificationStatus) return null;
+    if (notificationStatus.permission === "granted" && notificationStatus.tokenStatus === "success") {
+      return "Real-time reminders are enabled on this device.";
+    }
+    if (notificationStatus.permission === "denied") {
+      return "Notifications are blocked. Enable them in your browser settings.";
+    }
+    if (notificationStatus.tokenStatus === "error" && notificationStatus.error) {
+      return notificationStatus.error.message;
+    }
+    return "Enable push reminders to get gentle nudges throughout your day.";
+  }, [notificationStatus]);
+
+  useEffect(() => {
+    if (targets) {
+      setTargetDraft(targets);
+    }
+  }, [targets]);
+
   return (
     <section className="settings-panel">
+      <div className="account-card">
+        <h3>Account</h3>
+        <p>
+          {isAnonymous
+            ? "Create a profile to sync data across devices and unlock weekly digests."
+            : "Manage your personal details and sign out from your glow hub."}
+        </p>
+        <div className="account-details">
+          <div className="account-pill">
+            <span className="account-name">{accountName}</span>
+            {accountEmail && <span className="account-email">{accountEmail}</span>}
+            {!accountEmail && isAnonymous && (
+              <span className="account-email muted">No email connected</span>
+            )}
+          </div>
+          <div className="account-actions">
+            {isAnonymous ? (
+              <button
+                type="button"
+                className="pill-button"
+                onClick={() => onOpenAuth && onOpenAuth()}
+              >
+                Sign in or create account
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="pill-button pill-button--outline"
+                  onClick={() => onOpenAuth && onOpenAuth()}
+                >
+                  Edit profile
+                </button>
+                <button type="button" className="pill-button" onClick={() => onSignOut && onSignOut()}>
+                  Sign out
+                </button>
+              </>
+            )}
+          </div>
+      </div>
+    </div>
+
+      <div className="targets-card">
+        <h4>Daily Targets</h4>
+        <p>Fine-tune goals for each tracker to match your personal rhythm.</p>
+        <div className="targets-grid">
+          <label>
+            <span>Fitness moves / day</span>
+            <input
+              type="number"
+              min={1}
+              value={targetDraft.fitnessDailyExercises ?? DEFAULT_TARGETS.fitnessDailyExercises}
+              onChange={(e) => handleTargetChange("fitnessDailyExercises", e.target.value)}
+            />
+          </label>
+          <label>
+            <span>Calorie goal</span>
+            <input
+              type="number"
+              min={500}
+              step={10}
+              value={targetDraft.calorieDailyGoal ?? DEFAULT_TARGETS.calorieDailyGoal}
+              onChange={(e) => handleTargetChange("calorieDailyGoal", e.target.value)}
+            />
+          </label>
+          <label>
+            <span>Daily spend budget</span>
+            <input
+              type="number"
+              min={100}
+              step={50}
+              value={targetDraft.expenseDailyBudget ?? DEFAULT_TARGETS.expenseDailyBudget}
+              onChange={(e) => handleTargetChange("expenseDailyBudget", e.target.value)}
+            />
+          </label>
+          <label>
+            <span>Monthly spend cap</span>
+            <input
+              type="number"
+              min={500}
+              step={100}
+              value={targetDraft.expenseMonthlyBudget ?? DEFAULT_TARGETS.expenseMonthlyBudget}
+              onChange={(e) => handleTargetChange("expenseMonthlyBudget", e.target.value)}
+            />
+          </label>
+          <label>
+            <span>To-dos per day</span>
+            <input
+              type="number"
+              min={1}
+              value={targetDraft.todoDailyTarget ?? DEFAULT_TARGETS.todoDailyTarget}
+              onChange={(e) => handleTargetChange("todoDailyTarget", e.target.value)}
+            />
+          </label>
+        </div>
+        <button
+          type="button"
+          className="pill-button"
+          disabled={!hasTargetChanges || !onUpdateTargets}
+          onClick={saveTargets}
+        >
+          Save targets
+        </button>
+      </div>
+
       <div className="profile-card">
         <h3>Profile Aura</h3>
         <p>Customize your palette, reminders, and data rituals.</p>
@@ -95,6 +261,36 @@ function SettingsPanel({ currentTheme, onThemeChange }) {
               {theme.name}
             </button>
           ))}
+        </div>
+      </div>
+
+      <div className="notification-card">
+        <h4>Push Glow</h4>
+        <p>{notificationCopy}</p>
+        <div className="notification-actions">
+          <button
+            type="button"
+            className="pill-button"
+            disabled={
+              !notificationStatus ||
+              notificationStatus.permission === "denied" ||
+              notificationStatus.tokenStatus === "pending" ||
+              notificationStatus.tokenStatus === "success"
+            }
+            onClick={notificationStatus?.requestPermission}
+          >
+            {notificationStatus?.tokenStatus === "pending"
+              ? "Setting up…"
+              : notificationStatus?.permission === "granted"
+                ? "Enabled"
+                : "Enable Notifications"}
+          </button>
+          {notificationStatus?.lastMessage && (
+            <div className="notification-preview">
+              <span className="preview-label">Last ping:</span>
+              <strong>{notificationStatus.lastMessage.notification?.title ?? "Reminder received"}</strong>
+            </div>
+          )}
         </div>
       </div>
 

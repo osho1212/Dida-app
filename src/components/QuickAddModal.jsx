@@ -8,7 +8,14 @@ const tabs = [
   { id: "todos", label: "To-Dos" }
 ];
 
-function QuickAddModal({ onClose, onSaveFitness, onSaveAttendance, onSaveCalorie, onSaveExpense, onSaveTodo }) {
+function QuickAddModal({
+  onClose,
+  onSaveFitness,
+  onSaveAttendance,
+  onSaveCalorie,
+  onSaveExpense,
+  onSaveTodo
+}) {
   const [activeTab, setActiveTab] = useState("fitness");
   const [exercises, setExercises] = useState([
     { id: 1, name: "Morning Run", completed: false },
@@ -41,6 +48,8 @@ function QuickAddModal({ onClose, onSaveFitness, onSaveAttendance, onSaveCalorie
   const [todoCategory, setTodoCategory] = useState("work");
   const [todoPriority, setTodoPriority] = useState("medium");
   const [todoDueDate, setTodoDueDate] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const toggleExercise = (id) => {
     setExercises(exercises.map(ex =>
@@ -63,61 +72,80 @@ function QuickAddModal({ onClose, onSaveFitness, onSaveAttendance, onSaveCalorie
     setExercises(exercises.filter(ex => ex.id !== id));
   };
 
-  const handleSave = () => {
-    if (activeTab === "fitness" && onSaveFitness) {
-      const now = new Date();
-      const log = {
-        id: Date.now(),
-        date: now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-        time: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-        exercises: exercises,
-        notes: fitnessNotes.trim()
-      };
-      onSaveFitness(log);
-    } else if (activeTab === "attendance" && onSaveAttendance && attendedOffice) {
-      onSaveAttendance(attendanceDate, attendanceNotes);
-    } else if (activeTab === "calories" && onSaveCalorie) {
-      if (foodName.trim() && calories && parseInt(calories) > 0) {
-        const entry = {
-          id: Date.now(),
-          date: calorieDate,
-          foodName: foodName.trim(),
-          calories: parseInt(calories),
-          portion: portion.trim(),
-          mealType: mealType,
-          timestamp: new Date().toISOString()
+  const handleSave = async () => {
+    if (isSaving) return;
+    setErrorMessage("");
+    try {
+      setIsSaving(true);
+      if (activeTab === "fitness" && onSaveFitness) {
+        const now = new Date();
+        const log = {
+          date: now.toISOString().split("T")[0],
+          prettyDate: now.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric"
+          }),
+          time: now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+          exercises,
+          notes: fitnessNotes.trim()
         };
-        onSaveCalorie(entry);
+        await onSaveFitness(log);
+      } else if (activeTab === "attendance" && onSaveAttendance) {
+        if (attendedOffice) {
+          await onSaveAttendance(attendanceDate, attendanceNotes.trim());
+        } else {
+          throw new Error("Toggle the attendance switch to mark the day.");
+        }
+      } else if (activeTab === "calories" && onSaveCalorie) {
+        if (foodName.trim() && calories && parseInt(calories, 10) > 0) {
+          const entry = {
+            date: calorieDate,
+            foodName: foodName.trim(),
+            calories: parseInt(calories, 10),
+            portion: portion.trim(),
+            mealType,
+            timestamp: new Date().toISOString()
+          };
+          await onSaveCalorie(entry);
+        } else {
+          throw new Error("Please add a food name and calories.");
+        }
+      } else if (activeTab === "expenses" && onSaveExpense) {
+        if (expenseDescription.trim() && expenseAmount && parseFloat(expenseAmount) > 0) {
+          const entry = {
+            date: expenseDate,
+            description: expenseDescription.trim(),
+            amount: parseFloat(expenseAmount),
+            category: expenseCategory,
+            notes: expenseNotes.trim(),
+            timestamp: new Date().toISOString()
+          };
+          await onSaveExpense(entry);
+        } else {
+          throw new Error("Please add a description and amount.");
+        }
+      } else if (activeTab === "todos" && onSaveTodo) {
+        if (todoTitle.trim()) {
+          const entry = {
+            title: todoTitle.trim(),
+            description: todoDescription.trim(),
+            category: todoCategory,
+            priority: todoPriority,
+            dueDate: todoDueDate || null,
+            completed: false
+          };
+          await onSaveTodo(entry);
+        } else {
+          throw new Error("Please add a task title.");
+        }
+      } else {
+        onClose();
       }
-    } else if (activeTab === "expenses" && onSaveExpense) {
-      if (expenseDescription.trim() && expenseAmount && parseFloat(expenseAmount) > 0) {
-        const entry = {
-          id: Date.now(),
-          date: expenseDate,
-          description: expenseDescription.trim(),
-          amount: parseFloat(expenseAmount),
-          category: expenseCategory,
-          notes: expenseNotes.trim(),
-          timestamp: new Date().toISOString()
-        };
-        onSaveExpense(entry);
-      }
-    } else if (activeTab === "todos" && onSaveTodo) {
-      if (todoTitle.trim()) {
-        const entry = {
-          id: Date.now(),
-          title: todoTitle.trim(),
-          description: todoDescription.trim(),
-          category: todoCategory,
-          priority: todoPriority,
-          dueDate: todoDueDate || null,
-          completed: false,
-          createdAt: new Date().toISOString()
-        };
-        onSaveTodo(entry);
-      }
-    } else {
-      onClose();
+    } catch (error) {
+      setErrorMessage(error.message ?? "Unable to save entry.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -402,12 +430,23 @@ function QuickAddModal({ onClose, onSaveFitness, onSaveAttendance, onSaveCalorie
           )}
         </div>
 
+        {errorMessage && (
+          <p className="modal-error" role="alert">
+            {errorMessage}
+          </p>
+        )}
+
         <footer className="modal-footer">
           <button type="button" className="modal-secondary" onClick={onClose}>
             Cancel
           </button>
-          <button type="button" className="modal-primary" onClick={handleSave}>
-            Save Sparkle
+          <button
+            type="button"
+            className="modal-primary"
+            onClick={handleSave}
+            disabled={isSaving}
+          >
+            {isSaving ? "Saving…" : "Save Sparkle"}
           </button>
         </footer>
       </div>

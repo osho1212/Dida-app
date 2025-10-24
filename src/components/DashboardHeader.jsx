@@ -4,10 +4,11 @@ const vibeQuotes = [
   "Glow getter mode: ON ✨",
   "Pink plans, bold moves 💖",
   "Balance that budget, babe 💼",
-  "Sweat, sparkle, repeat 💪"
+  "Sweat, sparkle, repeat 💪",
+  "Little wins, big glow 🌟"
 ];
 
-function DashboardHeader({ onQuickAdd }) {
+function DashboardHeader({ onQuickAdd, displayName = "DIDA ❤️", stats = [] }) {
   const quote = vibeQuotes[new Date().getDay() % vibeQuotes.length];
 
   return (
@@ -15,7 +16,7 @@ function DashboardHeader({ onQuickAdd }) {
       <div className="header-left">
         <AvatarGlow />
         <div>
-          <p className="greeting-eyebrow">Hello DIDA ❤️</p>
+          <p className="greeting-eyebrow">Hello {displayName}</p>
           <h2 className="greeting-title">Let&apos;s make today radiant</h2>
           <p className="greeting-quote">{quote}</p>
         </div>
@@ -23,18 +24,12 @@ function DashboardHeader({ onQuickAdd }) {
 
       <div className="header-right">
         <div className="glow-goals">
-          <div>
-            <span className="goal-label">Workout</span>
-            <span className="goal-value">45 / 60 mins</span>
-          </div>
-          <div>
-            <span className="goal-label">Calories</span>
-            <span className="goal-value">1,650 / 1,900 kcal</span>
-          </div>
-          <div>
-            <span className="goal-label">Spend</span>
-            <span className="goal-value">₹1,200 / ₹2,000</span>
-          </div>
+          {stats.map((stat) => (
+            <div key={stat.label}>
+              <span className="goal-label">{stat.label}</span>
+              <span className="goal-value">{stat.value}</span>
+            </div>
+          ))}
         </div>
         <button className="quick-add" type="button" onClick={onQuickAdd}>
           <span aria-hidden="true">+</span>

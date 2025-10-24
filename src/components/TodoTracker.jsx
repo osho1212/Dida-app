@@ -1,8 +1,16 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { DEFAULT_TARGETS } from "../constants/defaultTargets.js";
 
-function TodoTracker({ todoData, onToggleTodo, onDeleteTodo }) {
+function TodoTracker({ todoData, onToggleTodo, onDeleteTodo, dailyTarget, onUpdateTarget }) {
   const [filter, setFilter] = useState('all'); // 'all', 'active', 'completed'
   const [priorityFilter, setPriorityFilter] = useState('all'); // 'all', 'high', 'medium', 'low'
+  const [editingTarget, setEditingTarget] = useState(false);
+  const [targetInput, setTargetInput] = useState(dailyTarget ?? DEFAULT_TARGETS.todoDailyTarget);
+  const canEditTarget = Boolean(onUpdateTarget);
+
+  useEffect(() => {
+    setTargetInput(dailyTarget ?? DEFAULT_TARGETS.todoDailyTarget);
+  }, [dailyTarget]);
 
   const priorities = [
     { id: 'high', label: 'High Priority', emoji: '🔴', color: '#f87171' },
@@ -19,7 +27,7 @@ function TodoTracker({ todoData, onToggleTodo, onDeleteTodo }) {
     { id: 'other', label: 'Other', emoji: '📌', color: '#a78bfa' }
   ];
 
-  const getFilteredTodos = () => {
+  const filteredTodos = useMemo(() => {
     let filtered = [...todoData];
 
     // Status filter
@@ -43,13 +51,12 @@ function TodoTracker({ todoData, onToggleTodo, onDeleteTodo }) {
       const priorityOrder = { high: 0, medium: 1, low: 2 };
       return priorityOrder[a.priority] - priorityOrder[b.priority];
     });
-  };
-
-  const filteredTodos = getFilteredTodos();
+  }, [todoData, filter, priorityFilter]);
   const totalTodos = todoData.length;
   const completedCount = todoData.filter(todo => todo.completed).length;
   const activeCount = totalTodos - completedCount;
-  const completionPercentage = totalTodos > 0 ? Math.round((completedCount / totalTodos) * 100) : 0;
+  const targetValue = Math.max(1, Number(dailyTarget ?? DEFAULT_TARGETS.todoDailyTarget));
+  const targetProgress = Math.min(Math.round((completedCount / targetValue) * 100), 100);
 
   const getCategoryInfo = (categoryId) => {
     return categories.find(cat => cat.id === categoryId);
@@ -59,10 +66,16 @@ function TodoTracker({ todoData, onToggleTodo, onDeleteTodo }) {
     return priorities.find(p => p.id === priorityId);
   };
 
-  const groupedByCategory = categories.map(cat => ({
-    ...cat,
-    todos: filteredTodos.filter(todo => todo.category === cat.id)
-  })).filter(cat => cat.todos.length > 0);
+  const groupedByCategory = useMemo(
+    () =>
+      categories
+        .map((cat) => ({
+          ...cat,
+          todos: filteredTodos.filter((todo) => todo.category === cat.id)
+        }))
+        .filter((cat) => cat.todos.length > 0),
+    [filteredTodos]
+  );
 
   return (
     <div className="todo-tracker">
@@ -77,18 +90,62 @@ function TodoTracker({ todoData, onToggleTodo, onDeleteTodo }) {
       <div className="todo-summary-card">
         <div className="todo-progress-info">
           <div className="progress-label-row">
-            <span className="progress-label">Task Completion</span>
-            <span className="progress-percentage">{completionPercentage}%</span>
+            <span className="progress-label">Daily Target</span>
+            <span className="progress-percentage">{targetProgress}%</span>
           </div>
           <div className="todo-progress-bar">
             <div
               className="todo-progress-fill"
-              style={{ width: `${completionPercentage}%` }}
+              style={{ width: `${targetProgress}%` }}
             />
           </div>
           <div className="progress-stats">
-            <span>{completedCount} of {totalTodos} tasks completed</span>
+            <span>{completedCount} of {targetValue} target tasks • {totalTodos} total planned</span>
           </div>
+          {canEditTarget && (
+            <div className="target-actions">
+              {editingTarget ? (
+                <div className="target-editor">
+                  <input
+                    type="number"
+                    min={1}
+                    value={targetInput}
+                    onChange={(e) => setTargetInput(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="pill-button"
+                    onClick={async () => {
+                      if (onUpdateTarget) {
+                        await onUpdateTarget(Number(targetInput));
+                      }
+                      setEditingTarget(false);
+                    }}
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    className="pill-button pill-button--outline"
+                    onClick={() => {
+                      setEditingTarget(false);
+                      setTargetInput(dailyTarget ?? DEFAULT_TARGETS.todoDailyTarget);
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="target-edit-btn"
+                  onClick={() => setEditingTarget(true)}
+                >
+                  Set daily target
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

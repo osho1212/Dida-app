@@ -1,4 +1,19 @@
 import { useMemo, useState } from "react";
+import { useFirebase } from "./providers/FirebaseProvider.jsx";
+import useFirebaseMessaging from "./hooks/useFirebaseMessaging.js";
+import useUserCollection from "./firebase/hooks/useUserCollection.js";
+import useUserTargets from "./firebase/hooks/useUserTargets.js";
+import { db } from "./firebase/client.js";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  serverTimestamp,
+  setDoc,
+  updateDoc
+} from "firebase/firestore";
+import AuthModal from "./components/AuthModal.jsx";
 import DashboardHeader from "./components/DashboardHeader.jsx";
 import ModuleCarousel from "./components/ModuleCarousel.jsx";
 import DailyPie from "./components/DailyPie.jsx";
@@ -10,6 +25,7 @@ import CalorieTracker from "./components/CalorieTracker.jsx";
 import ExpenseTracker from "./components/ExpenseTracker.jsx";
 import TodoTracker from "./components/TodoTracker.jsx";
 import StreakCalendar from "./components/StreakCalendar.jsx";
+import { buildDailyDashboardData } from "./utils/dashboardMetrics.js";
 
 const VIEWS = [
   { id: "daily", label: "Daily Hub" },
@@ -22,92 +38,149 @@ const VIEWS = [
 ];
 
 function App() {
+  const { user, profile, loading: authLoading, actions: authActions } = useFirebase();
+  const notificationStatus = useFirebaseMessaging(user);
   const [activeView, setActiveView] = useState("daily");
   const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [currentTheme, setCurrentTheme] = useState("girly");
-  const [fitnessLogs, setFitnessLogs] = useState([]);
-  const [attendanceData, setAttendanceData] = useState({
-    dates: ['2025-10-01', '2025-10-03', '2025-10-05', '2025-10-08', '2025-10-10',
-            '2025-10-12', '2025-10-15', '2025-10-17', '2025-10-19', '2025-10-22'],
-    notes: {}
+
+  const { data: fitnessLogsRaw } = useUserCollection(user, "fitnessLogs", {
+    orderBy: ["timestamp", "desc"],
+    limit: 100
   });
-  const [calorieData, setCalorieData] = useState([
-    { id: 1, date: '2025-10-22', foodName: 'Oatmeal with berries', calories: 300, portion: '1 bowl', mealType: 'breakfast' },
-    { id: 2, date: '2025-10-22', foodName: 'Banana', calories: 105, portion: '1 medium', mealType: 'snacks' },
-    { id: 3, date: '2025-10-22', foodName: 'Grilled Chicken Salad', calories: 450, portion: '1 plate', mealType: 'lunch' }
-  ]);
-  const [expenseData, setExpenseData] = useState([
-    { id: 1, date: '2025-10-22', description: 'Coffee & Breakfast', amount: 250, category: 'food', notes: 'Morning cafe', timestamp: new Date().toISOString() },
-    { id: 2, date: '2025-10-22', description: 'Uber ride', amount: 180, category: 'transport', notes: 'To office', timestamp: new Date().toISOString() },
-    { id: 3, date: '2025-10-22', description: 'Grocery shopping', amount: 1500, category: 'shopping', notes: 'Weekly groceries', timestamp: new Date().toISOString() },
-    { id: 4, date: '2025-10-21', description: 'Netflix subscription', amount: 649, category: 'entertainment', notes: '', timestamp: new Date().toISOString() }
-  ]);
-  const [todoData, setTodoData] = useState([
-    { id: 1, title: 'Complete project proposal', description: 'Finish the Q4 proposal document', category: 'work', priority: 'high', dueDate: '2025-10-25', completed: false, createdAt: new Date().toISOString() },
-    { id: 2, title: 'Morning yoga session', description: '', category: 'fitness', priority: 'medium', dueDate: '2025-10-22', completed: true, createdAt: new Date().toISOString() },
-    { id: 3, title: 'Buy groceries', description: 'Get vegetables, fruits, milk', category: 'shopping', priority: 'medium', dueDate: '2025-10-23', completed: false, createdAt: new Date().toISOString() },
-    { id: 4, title: 'Read JavaScript book chapter 5', description: '', category: 'learning', priority: 'low', dueDate: null, completed: false, createdAt: new Date().toISOString() },
-    { id: 5, title: 'Call mom', description: '', category: 'personal', priority: 'high', dueDate: '2025-10-22', completed: false, createdAt: new Date().toISOString() }
-  ]);
+  const { data: calorieDataRaw } = useUserCollection(user, "calories", {
+    orderBy: ["timestamp", "desc"],
+    limit: 100
+  });
+  const { data: expenseDataRaw } = useUserCollection(user, "expenses", {
+    orderBy: ["timestamp", "desc"],
+    limit: 100
+  });
+  const { data: todoDataRaw } = useUserCollection(user, "todos", {
+    orderBy: ["createdAt", "desc"],
+    limit: 100
+  });
+  const { data: attendanceDataRaw } = useUserCollection(user, "attendance", {
+    orderBy: ["date", "desc"],
+    limit: 100
+  });
+
+  const { targets, updateTargets } = useUserTargets(user);
+
+  const fitnessLogs = fitnessLogsRaw ?? [];
+  const calorieData = calorieDataRaw ?? [];
+  const expenseData = expenseDataRaw ?? [];
+  const todoData = todoDataRaw ?? [];
+  const attendanceData = useMemo(() => {
+    const rawData = attendanceDataRaw ?? [];
+    const dates = rawData.map((item) => item.date).filter(Boolean);
+    const notes = rawData.reduce((acc, item) => {
+      if (item.date && item.notes) {
+        acc[item.date] = item.notes;
+      }
+      return acc;
+    }, {});
+    return { dates, notes };
+  }, [attendanceDataRaw]);
+
+  const dashboardData = useMemo(() => {
+    return buildDailyDashboardData({
+      fitnessLogs,
+      calorieData,
+      expenseData,
+      todoData,
+      attendanceData,
+      targets
+    });
+  }, [fitnessLogs, calorieData, expenseData, todoData, attendanceData, targets]);
 
   const actions = useMemo(
     () => ({
       openQuickAdd: () => setShowQuickAdd(true),
       closeQuickAdd: () => setShowQuickAdd(false),
-      saveFitnessLog: (log) => {
-        setFitnessLogs(prev => [log, ...prev]);
-        setShowQuickAdd(false);
-      },
-      saveAttendanceLog: (dateStr, notes) => {
-        setAttendanceData(prev => {
-          const newDates = prev.dates.includes(dateStr)
-            ? prev.dates
-            : [...prev.dates, dateStr];
-          const newNotes = { ...prev.notes };
-          if (notes && notes.trim()) {
-            newNotes[dateStr] = notes.trim();
-          }
-          return { dates: newDates, notes: newNotes };
+      saveFitnessLog: async (log) => {
+        if (!user || !db) return;
+        await addDoc(collection(db, "users", user.uid, "fitnessLogs"), {
+          ...log,
+          timestamp: serverTimestamp()
         });
         setShowQuickAdd(false);
       },
-      toggleAttendanceDate: (dateStr) => {
-        setAttendanceData(prev => ({
-          ...prev,
-          dates: prev.dates.includes(dateStr)
-            ? prev.dates.filter(d => d !== dateStr)
-            : [...prev.dates, dateStr]
-        }));
-      },
-      saveCalorie: (entry) => {
-        setCalorieData(prev => [...prev, entry]);
+      saveAttendanceLog: async (dateStr, notes) => {
+        if (!user || !db) return;
+        const attendanceRef = doc(db, "users", user.uid, "attendance", dateStr);
+        await setDoc(attendanceRef, {
+          date: dateStr,
+          notes: notes || "",
+          timestamp: serverTimestamp()
+        });
         setShowQuickAdd(false);
       },
-      deleteCalorieEntry: (entryId) => {
-        setCalorieData(prev => prev.filter(entry => entry.id !== entryId));
+      toggleAttendanceDate: async (dateStr) => {
+        if (!user || !db) return;
+        const attendanceRef = doc(db, "users", user.uid, "attendance", dateStr);
+        const exists = attendanceData.dates.includes(dateStr);
+        if (exists) {
+          await deleteDoc(attendanceRef);
+        } else {
+          await setDoc(attendanceRef, {
+            date: dateStr,
+            notes: "",
+            timestamp: serverTimestamp()
+          });
+        }
       },
-      saveExpense: (entry) => {
-        setExpenseData(prev => [...prev, entry]);
+      saveCalorie: async (entry) => {
+        if (!user || !db) return;
+        await addDoc(collection(db, "users", user.uid, "calories"), {
+          ...entry,
+          timestamp: serverTimestamp()
+        });
         setShowQuickAdd(false);
       },
-      deleteExpenseEntry: (entryId) => {
-        setExpenseData(prev => prev.filter(entry => entry.id !== entryId));
+      deleteCalorieEntry: async (entryId) => {
+        if (!user || !db) return;
+        await deleteDoc(doc(db, "users", user.uid, "calories", entryId));
       },
-      saveTodo: (entry) => {
-        setTodoData(prev => [...prev, entry]);
+      saveExpense: async (entry) => {
+        if (!user || !db) return;
+        await addDoc(collection(db, "users", user.uid, "expenses"), {
+          ...entry,
+          timestamp: serverTimestamp()
+        });
         setShowQuickAdd(false);
       },
-      toggleTodo: (todoId) => {
-        setTodoData(prev => prev.map(todo =>
-          todo.id === todoId ? { ...todo, completed: !todo.completed } : todo
-        ));
+      deleteExpenseEntry: async (entryId) => {
+        if (!user || !db) return;
+        await deleteDoc(doc(db, "users", user.uid, "expenses", entryId));
       },
-      deleteTodo: (todoId) => {
-        setTodoData(prev => prev.filter(todo => todo.id !== todoId));
-      }
+      saveTodo: async (entry) => {
+        if (!user || !db) return;
+        await addDoc(collection(db, "users", user.uid, "todos"), {
+          ...entry,
+          createdAt: serverTimestamp()
+        });
+        setShowQuickAdd(false);
+      },
+      toggleTodo: async (todoId) => {
+        if (!user || !db) return;
+        const todo = todoData.find((t) => t.id === todoId);
+        if (!todo) return;
+        await updateDoc(doc(db, "users", user.uid, "todos", todoId), {
+          completed: !todo.completed
+        });
+      },
+      deleteTodo: async (todoId) => {
+        if (!user || !db) return;
+        await deleteDoc(doc(db, "users", user.uid, "todos", todoId));
+      },
+      updateTargets
     }),
-    []
+    [user, db, todoData, attendanceData, updateTargets]
   );
+
+  const displayName = profile?.displayName || user?.displayName || "DIDA ❤️";
 
   return (
     <div className={`app-shell theme-${currentTheme}`}>
@@ -120,11 +193,17 @@ function App() {
           glamorous cockpit. Designed for cross-device magic—mobile, desktop,
           and iPad ready.
         </p>
-        <button className="cta-button">Preview Prototype</button>
+        <button className="cta-button" onClick={() => setShowAuthModal(true)}>
+          {user?.isAnonymous ? "Sign In / Register" : "Preview Prototype"}
+        </button>
       </aside>
 
       <main className="main-panel">
-        <DashboardHeader onQuickAdd={actions.openQuickAdd} />
+        <DashboardHeader
+          onQuickAdd={actions.openQuickAdd}
+          displayName={displayName}
+          stats={dashboardData.headerStats}
+        />
 
         <nav className="view-switcher" aria-label="Primary views">
           {VIEWS.map((view) => (
@@ -142,8 +221,11 @@ function App() {
         <div className="view-content" role="region">
           {activeView === "daily" && (
             <>
-              <ModuleCarousel onQuickAdd={actions.openQuickAdd} />
-              <DailyPie />
+              <ModuleCarousel
+                modules={dashboardData.modules}
+                onQuickAdd={actions.openQuickAdd}
+              />
+              <DailyPie slices={dashboardData.pieSlices} />
               <StreakCalendar
                 fitnessLogs={fitnessLogs}
                 calorieData={calorieData}
@@ -155,18 +237,20 @@ function App() {
                 <div className="fitness-logs-section">
                   <h2 className="section-title">Recent Fitness Logs</h2>
                   <div className="fitness-logs-grid">
-                    {fitnessLogs.map((log) => (
+                    {fitnessLogs.slice(0, 5).map((log) => (
                       <div key={log.id} className="fitness-log-card">
                         <div className="log-header">
-                          <span className="log-date">{log.date}</span>
+                          <span className="log-date">{log.prettyDate || log.date}</span>
                           <span className="log-time">{log.time}</span>
                         </div>
                         <div className="log-exercises">
                           <h4>Exercises Completed:</h4>
                           <ul>
-                            {log.exercises.filter(ex => ex.completed).map((ex) => (
-                              <li key={ex.id}>✓ {ex.name}</li>
-                            ))}
+                            {(log.exercises || [])
+                              .filter((ex) => ex.completed)
+                              .map((ex, idx) => (
+                                <li key={idx}>✓ {ex.name}</li>
+                              ))}
                           </ul>
                         </div>
                         {log.notes && (
@@ -186,6 +270,10 @@ function App() {
             <CalorieTracker
               calorieData={calorieData}
               onDeleteEntry={actions.deleteCalorieEntry}
+              calorieGoal={targets?.calorieDailyGoal}
+              onUpdateGoal={async (newGoal) => {
+                await updateTargets({ calorieDailyGoal: newGoal });
+              }}
             />
           )}
 
@@ -193,6 +281,14 @@ function App() {
             <ExpenseTracker
               expenseData={expenseData}
               onDeleteEntry={actions.deleteExpenseEntry}
+              dailyBudget={targets?.expenseDailyBudget}
+              monthlyBudget={targets?.expenseMonthlyBudget}
+              onUpdateBudgets={async (dailyBudget, monthlyBudget) => {
+                await updateTargets({
+                  expenseDailyBudget: dailyBudget,
+                  expenseMonthlyBudget: monthlyBudget
+                });
+              }}
             />
           )}
 
@@ -201,6 +297,10 @@ function App() {
               todoData={todoData}
               onToggleTodo={actions.toggleTodo}
               onDeleteTodo={actions.deleteTodo}
+              dailyTarget={targets?.todoDailyTarget}
+              onUpdateTarget={async (newTarget) => {
+                await updateTargets({ todoDailyTarget: newTarget });
+              }}
             />
           )}
 
@@ -225,6 +325,13 @@ function App() {
             <SettingsPanel
               currentTheme={currentTheme}
               onThemeChange={setCurrentTheme}
+              notificationStatus={notificationStatus}
+              user={user}
+              profile={profile}
+              targets={targets}
+              onUpdateTargets={actions.updateTargets}
+              onOpenAuth={() => setShowAuthModal(true)}
+              onSignOut={authActions.signOut}
             />
           )}
         </div>
@@ -239,6 +346,10 @@ function App() {
           onSaveExpense={actions.saveExpense}
           onSaveTodo={actions.saveTodo}
         />
+      )}
+
+      {showAuthModal && (
+        <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
       )}
     </div>
   );

@@ -1,22 +1,29 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { DEFAULT_TARGETS } from "../constants/defaultTargets.js";
+import { toISODate } from "../utils/date.js";
 
-function CalorieTracker({ calorieData, onDeleteEntry }) {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+function CalorieTracker({ calorieData, onDeleteEntry, calorieGoal, onUpdateGoal }) {
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [goalInput, setGoalInput] = useState(calorieGoal ?? DEFAULT_TARGETS.calorieDailyGoal);
+  const canEditGoal = Boolean(onUpdateGoal);
 
-  const todayEntries = calorieData.filter(entry => entry.date === selectedDate);
+  useEffect(() => {
+    setGoalInput(calorieGoal ?? DEFAULT_TARGETS.calorieDailyGoal);
+  }, [calorieGoal]);
+
+  const todayEntries = useMemo(
+    () =>
+      calorieData.filter(
+        (entry) => toISODate(entry.date ?? entry.timestamp) === selectedDate
+      ),
+    [calorieData, selectedDate]
+  );
 
   const totalCalories = todayEntries.reduce((sum, entry) => sum + entry.calories, 0);
-  const dailyGoal = 2200;
+  const dailyGoal = Math.max(1, Number(calorieGoal ?? DEFAULT_TARGETS.calorieDailyGoal));
   const remaining = dailyGoal - totalCalories;
-  const percentage = Math.min((totalCalories / dailyGoal) * 100, 100);
-
-  const getMealEntries = (mealType) => {
-    return todayEntries.filter(entry => entry.mealType === mealType);
-  };
-
-  const getMealTotal = (mealType) => {
-    return getMealEntries(mealType).reduce((sum, entry) => sum + entry.calories, 0);
-  };
+  const percentage = Math.min(Math.max((totalCalories / dailyGoal) * 100, 0), 100);
 
   const mealTypes = [
     { id: 'breakfast', label: 'Breakfast', emoji: '🌅' },
@@ -24,6 +31,24 @@ function CalorieTracker({ calorieData, onDeleteEntry }) {
     { id: 'dinner', label: 'Dinner', emoji: '🌙' },
     { id: 'snacks', label: 'Snacks', emoji: '🍿' }
   ];
+
+  // Group entries by meal type in one pass
+  const mealsByType = useMemo(() => {
+    const grouped = {};
+    mealTypes.forEach(meal => {
+      grouped[meal.id] = { entries: [], total: 0 };
+    });
+
+    todayEntries.forEach(entry => {
+      const mealType = entry.mealType;
+      if (grouped[mealType]) {
+        grouped[mealType].entries.push(entry);
+        grouped[mealType].total += entry.calories;
+      }
+    });
+
+    return grouped;
+  }, [todayEntries]);
 
   return (
     <div className="calorie-tracker">
@@ -62,12 +87,56 @@ function CalorieTracker({ calorieData, onDeleteEntry }) {
           />
         </div>
         <p className="progress-text">{Math.round(percentage)}% of daily goal</p>
+        {canEditGoal && (
+          <div className="target-actions">
+            {editingGoal ? (
+              <div className="target-editor">
+                <input
+                  type="number"
+                  min={500}
+                  step={10}
+                  value={goalInput}
+                  onChange={(e) => setGoalInput(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="pill-button"
+                  onClick={async () => {
+                    if (onUpdateGoal) {
+                      await onUpdateGoal(Number(goalInput));
+                    }
+                    setEditingGoal(false);
+                  }}
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  className="pill-button pill-button--outline"
+                  onClick={() => {
+                    setEditingGoal(false);
+                    setGoalInput(calorieGoal ?? DEFAULT_TARGETS.calorieDailyGoal);
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="target-edit-btn"
+                onClick={() => setEditingGoal(true)}
+              >
+                Set daily goal
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="meals-grid">
         {mealTypes.map((meal) => {
-          const entries = getMealEntries(meal.id);
-          const total = getMealTotal(meal.id);
+          const { entries, total } = mealsByType[meal.id] || { entries: [], total: 0 };
 
           return (
             <div key={meal.id} className="meal-card">

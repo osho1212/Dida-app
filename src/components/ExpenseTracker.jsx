@@ -1,23 +1,53 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { DEFAULT_TARGETS } from "../constants/defaultTargets.js";
+import { toISODate } from "../utils/date.js";
 
-function ExpenseTracker({ expenseData, onDeleteEntry }) {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [viewMode, setViewMode] = useState('daily'); // 'daily' or 'monthly'
+function ExpenseTracker({
+  expenseData,
+  onDeleteEntry,
+  dailyBudget: dailyBudgetProp,
+  monthlyBudget: monthlyBudgetProp,
+  onUpdateBudgets
+}) {
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+  const [viewMode, setViewMode] = useState("daily"); // 'daily' or 'monthly'
+  const [editingBudget, setEditingBudget] = useState(false);
+  const [dailyInput, setDailyInput] = useState(dailyBudgetProp ?? DEFAULT_TARGETS.expenseDailyBudget);
+  const [monthlyInput, setMonthlyInput] = useState(monthlyBudgetProp ?? DEFAULT_TARGETS.expenseMonthlyBudget);
+  const canEditBudgets = Boolean(onUpdateBudgets);
 
-  const getFilteredExpenses = () => {
-    if (viewMode === 'daily') {
-      return expenseData.filter(entry => entry.date === selectedDate);
-    } else {
-      const [year, month] = selectedDate.split('-');
-      return expenseData.filter(entry => entry.date.startsWith(`${year}-${month}`));
+  useEffect(() => {
+    setDailyInput(dailyBudgetProp ?? DEFAULT_TARGETS.expenseDailyBudget);
+  }, [dailyBudgetProp]);
+
+  useEffect(() => {
+    setMonthlyInput(monthlyBudgetProp ?? DEFAULT_TARGETS.expenseMonthlyBudget);
+  }, [monthlyBudgetProp]);
+
+  const filteredExpenses = useMemo(() => {
+    if (viewMode === "daily") {
+      return expenseData.filter(
+        (entry) => toISODate(entry.date ?? entry.timestamp) === selectedDate
+      );
     }
-  };
+    const [year, month] = selectedDate.split("-");
+    const prefix = `${year}-${month}`;
+    return expenseData.filter((entry) => {
+      const iso = toISODate(entry.date ?? entry.timestamp);
+      return iso ? iso.startsWith(prefix) : false;
+    });
+  }, [expenseData, selectedDate, viewMode]);
 
-  const filteredExpenses = getFilteredExpenses();
   const totalSpent = filteredExpenses.reduce((sum, entry) => sum + entry.amount, 0);
-  const monthlyBudget = 30000;
-  const dailyBudget = 1000;
-  const budget = viewMode === 'daily' ? dailyBudget : monthlyBudget;
+  const dailyBudget = Math.max(
+    1,
+    Number(dailyBudgetProp ?? DEFAULT_TARGETS.expenseDailyBudget)
+  );
+  const monthlyBudget = Math.max(
+    1,
+    Number(monthlyBudgetProp ?? DEFAULT_TARGETS.expenseMonthlyBudget)
+  );
+  const budget = viewMode === "daily" ? dailyBudget : monthlyBudget;
   const remaining = budget - totalSpent;
   const percentage = Math.min((totalSpent / budget) * 100, 100);
 
@@ -31,23 +61,27 @@ function ExpenseTracker({ expenseData, onDeleteEntry }) {
     { id: 'other', label: 'Other', emoji: '📦', color: '#a78bfa' }
   ];
 
-  const getCategoryExpenses = (categoryId) => {
-    return filteredExpenses.filter(entry => entry.category === categoryId);
-  };
-
-  const getCategoryTotal = (categoryId) => {
-    return getCategoryExpenses(categoryId).reduce((sum, entry) => sum + entry.amount, 0);
-  };
-
   const getCategoryColor = (categoryId) => {
     return categories.find(cat => cat.id === categoryId)?.color || '#a78bfa';
   };
 
-  const categoryTotals = categories.map(cat => ({
-    ...cat,
-    total: getCategoryTotal(cat.id),
-    entries: getCategoryExpenses(cat.id)
-  })).filter(cat => cat.total > 0);
+  // Group expenses by category in one pass
+  const categoryTotals = useMemo(() => {
+    const grouped = {};
+    categories.forEach(cat => {
+      grouped[cat.id] = { ...cat, total: 0, entries: [] };
+    });
+
+    filteredExpenses.forEach(entry => {
+      const catId = entry.category;
+      if (grouped[catId]) {
+        grouped[catId].total += entry.amount;
+        grouped[catId].entries.push(entry);
+      }
+    });
+
+    return Object.values(grouped).filter(cat => cat.total > 0);
+  }, [filteredExpenses]);
 
   return (
     <div className="expense-tracker">
@@ -102,6 +136,61 @@ function ExpenseTracker({ expenseData, onDeleteEntry }) {
           />
         </div>
         <p className="progress-text">{Math.round(percentage)}% of budget used</p>
+        {canEditBudgets && (
+          <div className="target-actions">
+            {editingBudget ? (
+              <div className="target-editor">
+                <input
+                  type="number"
+                  min={100}
+                  step={50}
+                  value={dailyInput}
+                  onChange={(e) => setDailyInput(e.target.value)}
+                  aria-label="Daily budget"
+                />
+                <input
+                  type="number"
+                  min={500}
+                  step={100}
+                  value={monthlyInput}
+                  onChange={(e) => setMonthlyInput(e.target.value)}
+                  aria-label="Monthly budget"
+                />
+                <button
+                  type="button"
+                  className="pill-button"
+                  onClick={async () => {
+                    if (onUpdateBudgets) {
+                      await onUpdateBudgets(Number(dailyInput), Number(monthlyInput));
+                    }
+                    setEditingBudget(false);
+                  }}
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  className="pill-button pill-button--outline"
+                  onClick={() => {
+                    setEditingBudget(false);
+                    setDailyInput(dailyBudgetProp ?? DEFAULT_TARGETS.expenseDailyBudget);
+                    setMonthlyInput(monthlyBudgetProp ?? DEFAULT_TARGETS.expenseMonthlyBudget);
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="target-edit-btn"
+                onClick={() => setEditingBudget(true)}
+              >
+                Set budgets
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {categoryTotals.length > 0 ? (

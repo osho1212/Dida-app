@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+
 function WeeklyInsights({
   fitnessLogs,
   calorieData,
@@ -18,36 +20,81 @@ function WeeklyInsights({
 
   const last7Days = getLast7Days();
 
-  // Fitness insights
-  const weeklyWorkouts = fitnessLogs.length;
-  const fitnessGoal = 5;
-  const fitnessPercentage = Math.min((weeklyWorkouts / fitnessGoal) * 100, 100);
+  // Process all data in a single pass for efficiency
+  const weeklyMetrics = useMemo(() => {
+    const last7DaysSet = new Set(last7Days);
 
-  // Calorie insights
-  const weeklyCalories = calorieData.filter(entry =>
-    last7Days.includes(entry.date)
-  );
-  const totalCalories = weeklyCalories.reduce((sum, entry) => sum + entry.calories, 0);
-  const avgDailyCalories = weeklyCalories.length > 0 ? Math.round(totalCalories / 7) : 0;
-  const calorieGoal = 2200;
+    // Fitness insights
+    const weeklyWorkouts = fitnessLogs.length;
+    const fitnessGoal = 5;
+    const fitnessPercentage = Math.min((weeklyWorkouts / fitnessGoal) * 100, 100);
 
-  // Expense insights
-  const weeklyExpenses = expenseData.filter(entry =>
-    last7Days.includes(entry.date)
-  );
-  const totalSpent = weeklyExpenses.reduce((sum, entry) => sum + entry.amount, 0);
-  const weeklyBudget = 7000;
-  const budgetPercentage = Math.min((totalSpent / weeklyBudget) * 100, 100);
+    // Calorie insights
+    let totalCalories = 0;
+    let calorieCount = 0;
+    calorieData.forEach(entry => {
+      if (last7DaysSet.has(entry.date)) {
+        totalCalories += entry.calories;
+        calorieCount++;
+      }
+    });
+    const avgDailyCalories = calorieCount > 0 ? Math.round(totalCalories / 7) : 0;
+    const calorieGoal = 2200;
 
-  // Todo insights
-  const completedTodos = todoData.filter(todo => todo.completed).length;
-  const totalTodos = todoData.length;
-  const todoCompletionRate = totalTodos > 0 ? Math.round((completedTodos / totalTodos) * 100) : 0;
+    // Expense insights
+    let totalSpent = 0;
+    expenseData.forEach(entry => {
+      if (last7DaysSet.has(entry.date)) {
+        totalSpent += entry.amount;
+      }
+    });
+    const weeklyBudget = 7000;
+    const budgetPercentage = Math.min((totalSpent / weeklyBudget) * 100, 100);
 
-  // Attendance insights
-  const weeklyAttendance = attendanceData.dates.filter(date =>
-    last7Days.includes(date)
-  ).length;
+    // Todo insights
+    let completedTodos = 0;
+    todoData.forEach(todo => {
+      if (todo.completed) completedTodos++;
+    });
+    const totalTodos = todoData.length;
+    const todoCompletionRate = totalTodos > 0 ? Math.round((completedTodos / totalTodos) * 100) : 0;
+
+    // Attendance insights
+    let weeklyAttendance = 0;
+    attendanceData.dates.forEach(date => {
+      if (last7DaysSet.has(date)) weeklyAttendance++;
+    });
+
+    return {
+      weeklyWorkouts,
+      fitnessPercentage,
+      fitnessGoal,
+      avgDailyCalories,
+      calorieGoal,
+      totalSpent,
+      weeklyBudget,
+      budgetPercentage,
+      completedTodos,
+      totalTodos,
+      todoCompletionRate,
+      weeklyAttendance
+    };
+  }, [last7Days, fitnessLogs, calorieData, expenseData, todoData, attendanceData]);
+
+  const {
+    weeklyWorkouts,
+    fitnessPercentage,
+    fitnessGoal,
+    avgDailyCalories,
+    calorieGoal,
+    totalSpent,
+    weeklyBudget,
+    budgetPercentage,
+    completedTodos,
+    totalTodos,
+    todoCompletionRate,
+    weeklyAttendance
+  } = weeklyMetrics;
 
   // Overall score calculation
   const overallScore = Math.round(
