@@ -76,8 +76,18 @@ export default function useUserTargets(user) {
       if (Object.keys(payload).length === 0) {
         return;
       }
-      payload.updatedAt = serverTimestamp();
-      await setDoc(ref, payload, { merge: true });
+
+      // Optimistic local update so UI reflects immediately
+      setTargets((prev) => mergeTargets({ ...prev, ...payload }));
+
+      await setDoc(
+        ref,
+        {
+          ...payload,
+          updatedAt: serverTimestamp()
+        },
+        { merge: true }
+      );
     },
     [user]
   );

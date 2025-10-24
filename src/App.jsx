@@ -3,6 +3,7 @@ import { useFirebase } from "./providers/FirebaseProvider.jsx";
 import useFirebaseMessaging from "./hooks/useFirebaseMessaging.js";
 import useUserCollection from "./firebase/hooks/useUserCollection.js";
 import useUserTargets from "./firebase/hooks/useUserTargets.js";
+import useUserTheme from "./firebase/hooks/useUserTheme.js";
 import { db } from "./firebase/client.js";
 import {
   addDoc,
@@ -43,7 +44,7 @@ function App() {
   const [activeView, setActiveView] = useState("daily");
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [currentTheme, setCurrentTheme] = useState("girly");
+  const { theme: currentTheme, loading: themeLoading, updateTheme } = useUserTheme(user);
 
   const { data: fitnessLogsRaw } = useUserCollection(user, "fitnessLogs", {
     orderBy: ["timestamp", "desc"],
@@ -85,14 +86,16 @@ function App() {
   }, [attendanceDataRaw]);
 
   const dashboardData = useMemo(() => {
-    return buildDailyDashboardData({
-      fitnessLogs,
-      calorieData,
-      expenseData,
-      todoData,
-      attendanceData,
+    return buildDailyDashboardData(
+      {
+        fitnessLogs,
+        calorieData,
+        expenseData,
+        todoData,
+        attendanceData
+      },
       targets
-    });
+    );
   }, [fitnessLogs, calorieData, expenseData, todoData, attendanceData, targets]);
 
   const actions = useMemo(
@@ -182,8 +185,19 @@ function App() {
 
   const displayName = profile?.displayName || user?.displayName || "DIDA ❤️";
 
+  if (authLoading || themeLoading) {
+    return (
+      <div className="app-shell loading-state">
+        <div className="loading-card">
+          <span className="loading-spinner" aria-hidden="true" />
+          <p>Loading your glow preferences…</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={`app-shell theme-${currentTheme}`}>
+    <div className={`app-shell theme-${currentTheme || "girly"}`}>
       <aside className="hero-onboarding">
         <div className="sparkle" />
         <p className="hero-eyebrow">Meet Dida</p>
@@ -324,7 +338,7 @@ function App() {
           {activeView === "settings" && (
             <SettingsPanel
               currentTheme={currentTheme}
-              onThemeChange={setCurrentTheme}
+              onThemeChange={updateTheme}
               notificationStatus={notificationStatus}
               user={user}
               profile={profile}
