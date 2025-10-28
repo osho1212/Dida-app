@@ -3563,8 +3563,9 @@ a:active,
 
   /* Daily pie - responsive grid */
   .daily-pie-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     gap: 10px;
+    justify-items: center;
   }
 
   .pie-slice {
@@ -3714,32 +3715,26 @@ a:active,
   }
 
   /* Modals - full screen on mobile */
-  .quick-add-modal,
-  .auth-modal-overlay {
-    padding: 0;
-    align-items: flex-end;
-  }
-
-  .quick-add-content,
-  .auth-modal-content {
-    max-width: 100%;
+  .modal-sheet {
     width: 100%;
+    max-width: 100%;
+    border-radius: 22px 22px 0 0;
+    padding: 24px 20px;
     max-height: 90vh;
-    border-radius: 20px 20px 0 0;
-    margin: 0;
+    display: flex;
+    flex-direction: column;
   }
 
   .modal-header {
-    padding: 16px;
-    border-radius: 20px 20px 0 0;
-  }
-
-  .modal-header h2 {
-    font-size: 1.15rem;
+    padding: 0 0 12px 0;
   }
 
   .modal-body {
-    padding: 16px;
+    padding: 0;
+    max-height: calc(90vh - 210px);
+    overflow-y: auto;
+    margin-right: -6px;
+    padding-right: 6px;
   }
 
   /* Form inputs - larger touch targets */
@@ -3810,6 +3805,47 @@ a:active,
   /* Safe area for iPhone notch and home indicator */
   .main-panel {
     padding-bottom: max(60px, env(safe-area-inset-bottom, 60px));
+  }
+}
+
+@media (max-width: 480px) {
+  .main-panel {
+    padding: 16px 12px 28px;
+    gap: 16px;
+  }
+
+  .dashboard-header {
+    padding: 16px;
+  }
+
+  .greeting-title {
+    font-size: 1.1rem;
+  }
+
+  .view-switcher {
+    gap: 6px;
+  }
+
+  .module-card {
+    padding: 12px;
+  }
+
+  .pie-chart {
+    width: 100px;
+    height: 100px;
+  }
+
+  .pie-chart-inner {
+    width: 64px;
+    height: 64px;
+  }
+
+  .targets-grid {
+    gap: 14px;
+  }
+
+  .settings-panel {
+    gap: 14px;
   }
 }
 
