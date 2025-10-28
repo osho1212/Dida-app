@@ -130,6 +130,35 @@ body {
   background: radial-gradient(circle at top right, var(--primary-subtle), transparent 35%) var(--black-ink);
   color: var(--white);
   min-height: 100vh;
+  /* Mobile optimizations */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  /* Safe area insets for modern iPhones */
+  padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+}
+
+/* Global button touch optimization */
+button,
+a,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+button:active,
+a:active,
+[role="button"]:active {
+  transform: scale(0.98);
+  opacity: 0.9;
+}
+
+/* Smooth scrolling for better mobile UX */
+* {
+  -webkit-overflow-scrolling: touch;
 }
 
 .loading-state {
@@ -1857,6 +1886,63 @@ body {
   background: var(--primary-light);
 }
 
+/* Toggle Switch for Reminders */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.2);
+  transition: 0.3s;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+  border-color: var(--primary-color);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(20px);
+}
+
+.toggle-slider:hover {
+  background-color: rgba(255, 255, 255, 0.25);
+}
+
+.toggle-switch input:checked + .toggle-slider:hover {
+  opacity: 0.9;
+}
+
 .data-actions {
   display: flex;
   flex-wrap: wrap;
@@ -3294,6 +3380,7 @@ body {
   margin-right: 6px;
 }
 
+/* Tablet breakpoint */
 @media (max-width: 1180px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -3308,33 +3395,456 @@ body {
   }
 }
 
+/* Mobile breakpoint - Premium iOS-style interface */
 @media (max-width: 720px) {
+  /* Main layout adjustments */
+  .main-panel {
+    padding: 16px 16px 80px;
+    gap: 20px;
+  }
+
+  /* Header: Compact and clean */
   .dashboard-header {
     flex-direction: column;
-    gap: 24px;
-    align-items: flex-start;
+    gap: 16px;
+    align-items: stretch;
+    padding: 20px;
+    border-radius: 20px;
+  }
+
+  .header-left {
+    gap: 16px;
+    align-items: center;
+  }
+
+  /* Smaller avatar for mobile */
+  .avatar-glow {
+    width: 64px;
+    height: 64px;
+    flex-shrink: 0;
+  }
+
+  .avatar-inner {
+    width: 54px;
+    height: 54px;
+    font-size: 1.4rem;
+  }
+
+  .avatar-sparkles {
+    inset: -8px;
+  }
+
+  .greeting-eyebrow {
+    font-size: 0.7rem;
+  }
+
+  .greeting-title {
+    font-size: 1.4rem;
+    margin: 2px 0;
+  }
+
+  .greeting-quote {
+    font-size: 0.85rem;
   }
 
   .header-right {
+    flex-direction: row;
+    align-items: stretch;
+    width: 100%;
+    gap: 12px;
+  }
+
+  /* Compact glow goals */
+  .glow-goals {
+    flex: 1;
     flex-direction: column;
-    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 16px;
   }
 
+  .glow-goals div {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .goal-label {
+    font-size: 0.7rem;
+  }
+
+  .goal-value {
+    font-size: 0.9rem;
+  }
+
+  /* Quick add button - prominent and touch-friendly */
+  .quick-add {
+    padding: 14px 20px;
+    font-size: 0.9rem;
+    border-radius: 16px;
+    white-space: nowrap;
+  }
+
+  .quick-add span {
+    font-size: 1.2rem;
+  }
+
+  /* Navigation pills - horizontal scroll with snap */
   .view-switcher {
-    flex-wrap: wrap;
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 8px;
+    padding-bottom: 8px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Hide scrollbar on Firefox */
   }
 
+  .view-switcher::-webkit-scrollbar {
+    display: none; /* Hide scrollbar on Chrome/Safari */
+  }
+
+  .view-pill {
+    padding: 12px 20px;
+    font-size: 0.85rem;
+    border-radius: 20px;
+    white-space: nowrap;
+    scroll-snap-align: start;
+    flex-shrink: 0;
+  }
+
+  .view-pill.is-active {
+    box-shadow: 0 4px 12px var(--primary-light);
+  }
+
+  /* Module cards - single column, generous spacing */
+  .module-carousel {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .module-card {
+    padding: 20px;
+    border-radius: 20px;
+  }
+
+  .module-chip {
+    padding: 6px 14px;
+    font-size: 0.7rem;
+  }
+
+  .module-card h3 {
+    font-size: 1.05rem;
+  }
+
+  /* Daily pie - responsive grid */
   .daily-pie-grid {
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
   }
 
+  .pie-slice {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .pie-slice-icon {
+    font-size: 1.8rem;
+  }
+
+  .pie-slice-label {
+    font-size: 0.75rem;
+  }
+
+  .pie-slice-value {
+    font-size: 1.5rem;
+  }
+
+  .pie-slice-subtext {
+    font-size: 0.7rem;
+  }
+
+  /* Tracker pages - full width forms */
+  .calorie-tracker,
+  .expense-tracker,
+  .todo-tracker,
+  .settings-panel {
+    max-width: 100%;
+  }
+
+  /* Entry lists - touch-friendly */
+  .entry-card,
+  .todo-card {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .entry-card button,
+  .todo-card button {
+    min-width: 44px; /* iOS minimum touch target */
+    min-height: 44px;
+  }
+
+  /* Weekly insights */
   .weekly-overview-card {
     grid-template-columns: 1fr;
     text-align: center;
+    padding: 20px;
+    gap: 16px;
   }
 
   .insights-grid {
     grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .insight-card {
+    padding: 20px;
+    border-radius: 20px;
+  }
+
+  /* Streak calendar - compact */
+  .streak-calendar {
+    padding: 20px;
+    border-radius: 20px;
+  }
+
+  .calendar-grid {
+    gap: 6px;
+  }
+
+  .calendar-day {
+    width: 36px;
+    height: 36px;
+    font-size: 0.75rem;
+    border-radius: 10px;
+  }
+
+  /* Settings panel - stacked layout */
+  .account-card,
+  .targets-card,
+  .profile-card {
+    padding: 20px;
+    border-radius: 20px;
+  }
+
+  .account-details {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .account-actions {
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .account-actions button {
+    width: 100%;
+  }
+
+  .targets-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .targets-grid label {
+    width: 100%;
+  }
+
+  .theme-swatches {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  /* Modals - full screen on mobile */
+  .quick-add-modal,
+  .auth-modal-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .quick-add-content,
+  .auth-modal-content {
+    max-width: 100%;
+    width: 100%;
+    max-height: 90vh;
+    border-radius: 24px 24px 0 0;
+    margin: 0;
+  }
+
+  .modal-header {
+    padding: 20px;
+    border-radius: 24px 24px 0 0;
+  }
+
+  .modal-header h2 {
+    font-size: 1.4rem;
+  }
+
+  .modal-body {
+    padding: 20px;
+  }
+
+  /* Form inputs - larger touch targets */
+  input,
+  textarea,
+  select,
+  button {
+    font-size: 16px; /* Prevents zoom on iOS */
+    min-height: 44px;
+    border-radius: 12px;
+  }
+
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="date"],
+  input[type="time"],
+  textarea {
+    padding: 12px 16px;
+  }
+
+  .pill-button {
+    padding: 14px 24px;
+    font-size: 0.9rem;
+    border-radius: 16px;
+    min-height: 48px;
+  }
+
+  /* CTA button - prominent */
+  .cta-button {
+    padding: 16px 28px;
+    font-size: 1rem;
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Loading state */
+  .loading-card {
+    padding: 28px 32px;
+    border-radius: 20px;
+  }
+
+  /* Fitness logs grid */
+  .fitness-logs-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .fitness-log-card {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  /* Safe area for iPhone notch and home indicator */
+  .main-panel {
+    padding-bottom: max(80px, env(safe-area-inset-bottom, 80px));
+  }
+}
+
+/* Extra small mobile devices */
+@media (max-width: 380px) {
+  .main-panel {
+    padding: 12px 12px 80px;
+    gap: 16px;
+  }
+
+  .dashboard-header {
+    padding: 16px;
+  }
+
+  .avatar-glow {
+    width: 56px;
+    height: 56px;
+  }
+
+  .avatar-inner {
+    width: 48px;
+    height: 48px;
+    font-size: 1.2rem;
+  }
+
+  .greeting-title {
+    font-size: 1.2rem;
+  }
+
+  .glow-goals {
+    padding: 10px 14px;
+    gap: 10px;
+  }
+
+  .daily-pie-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .view-pill {
+    padding: 10px 16px;
+    font-size: 0.8rem;
+  }
+
+  .module-card {
+    padding: 16px;
+  }
+
+  .calendar-day {
+    width: 32px;
+    height: 32px;
+    font-size: 0.7rem;
+  }
+
+  /* Day Details Modal - mobile optimization */
+  .day-details-modal {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .day-details-content {
+    max-width: 100%;
+    width: 100%;
+    max-height: 92vh;
+    border-radius: 24px 24px 0 0;
+    animation: slideUpMobile 0.3s ease;
+  }
+
+  @keyframes slideUpMobile {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  .day-details-header {
+    padding: 20px;
+    border-radius: 24px 24px 0 0;
+  }
+
+  .day-details-header h3 {
+    font-size: 1.3rem;
+  }
+
+  .day-details-body {
+    padding: 20px;
+    gap: 20px;
+  }
+
+  .activity-section {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .activity-detail-card {
+    padding: 14px;
+  }
+
+  .close-modal-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 2rem;
   }
 }
 
