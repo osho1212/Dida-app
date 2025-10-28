@@ -3952,6 +3952,91 @@ a:active,
   }
 }
 
+/* Orientation Tip Popup */
+.orientation-tip-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+.orientation-tip-content {
+  background: linear-gradient(135deg, rgba(12, 12, 15, 0.98), rgba(20, 20, 30, 0.98));
+  border: 2px solid var(--primary-color);
+  border-radius: 24px;
+  padding: 32px 28px;
+  max-width: 360px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 20px 60px var(--primary-light);
+  animation: slideUp 0.4s ease;
+}
+
+.orientation-tip-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  animation: rotateIcon 2s ease-in-out infinite;
+}
+
+@keyframes rotateIcon {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-15deg);
+  }
+  75% {
+    transform: rotate(15deg);
+  }
+}
+
+.orientation-tip-content h3 {
+  margin: 0 0 12px 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--primary-color);
+  font-family: "Poppins", sans-serif;
+}
+
+.orientation-tip-content p {
+  margin: 0 0 24px 0;
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.5;
+}
+
+.orientation-tip-button {
+  background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+  color: var(--black-ink);
+  border: none;
+  border-radius: 16px;
+  padding: 14px 32px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  box-shadow: 0 8px 20px var(--primary-light);
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.orientation-tip-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px var(--primary-light);
+}
+
+.orientation-tip-button:active {
+  transform: translateY(0);
+}
+
 /* Day Details Modal */
 .day-details-modal {
   position: fixed;

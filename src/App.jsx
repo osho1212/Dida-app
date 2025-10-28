@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useFirebase } from "./providers/FirebaseProvider.jsx";
 import useUserCollection from "./firebase/hooks/useUserCollection.js";
 import useUserTargets from "./firebase/hooks/useUserTargets.js";
@@ -42,7 +42,25 @@ function App() {
   const [activeView, setActiveView] = useState("daily");
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showOrientationTip, setShowOrientationTip] = useState(false);
   const { theme: currentTheme, loading: themeLoading, updateTheme } = useUserTheme(user);
+
+  // Check orientation on mount and resize
+  useEffect(() => {
+    const checkOrientation = () => {
+      const isPortrait = window.innerHeight > window.innerWidth;
+      const isMobile = window.innerWidth <= 720;
+      const hasSeenTip = localStorage.getItem('orientation-tip-seen');
+
+      if (isPortrait && isMobile && !hasSeenTip) {
+        setShowOrientationTip(true);
+      }
+    };
+
+    checkOrientation();
+    window.addEventListener('resize', checkOrientation);
+    return () => window.removeEventListener('resize', checkOrientation);
+  }, []);
 
   const { data: fitnessLogsRaw } = useUserCollection(user, "fitnessLogs", {
     orderByField: "timestamp",
@@ -371,6 +389,25 @@ function App() {
 
       {showAuthModal && (
         <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+      )}
+
+      {showOrientationTip && (
+        <div className="orientation-tip-overlay">
+          <div className="orientation-tip-content">
+            <div className="orientation-tip-icon">📱 ↻ 🖥️</div>
+            <h3>Better Experience Awaits!</h3>
+            <p>Switch to landscape mode for the best viewing experience.</p>
+            <button
+              className="orientation-tip-button"
+              onClick={() => {
+                localStorage.setItem('orientation-tip-seen', 'true');
+                setShowOrientationTip(false);
+              }}
+            >
+              Got it!
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
