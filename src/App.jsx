@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import { useFirebase } from "./providers/FirebaseProvider.jsx";
-import useFirebaseMessaging from "./hooks/useFirebaseMessaging.js";
 import useUserCollection from "./firebase/hooks/useUserCollection.js";
 import useUserTargets from "./firebase/hooks/useUserTargets.js";
 import useUserTheme from "./firebase/hooks/useUserTheme.js";
@@ -40,7 +39,6 @@ const VIEWS = [
 
 function App() {
   const { user, profile, loading: authLoading, actions: authActions } = useFirebase();
-  const notificationStatus = useFirebaseMessaging(user);
   const [activeView, setActiveView] = useState("daily");
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -349,7 +347,6 @@ function App() {
             <SettingsPanel
               currentTheme={currentTheme}
               onThemeChange={updateTheme}
-              notificationStatus={notificationStatus}
               user={user}
               profile={profile}
               targets={targets}
